@@ -1,0 +1,27 @@
+# Anthropic Docs — All-in-one
+
+> Combined documentation for Anthropic's API and SDKs.
+
+## Getting started
+
+The Anthropic API exposes the Claude family of models via a single REST endpoint. Authentication uses
+an `x-api-key` header and requests are JSON. Most clients should use the official SDK rather than
+raw HTTP — it handles retries, streaming, and structured tool use for you.
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+```
+
+## Messages API
+
+The Messages API accepts a list of role-tagged turns and returns one assistant message. System prompts
+ride alongside `messages` rather than inside them, which keeps multi-turn conversations clean.
+
+```python
+client.messages.create(model="claude-opus-4-7", messages=[...])
+```
+
+## Prompt caching
+
+Cached content is identified by a `cache_control` block on any message content. Cache hits charge a
+small read fee but skip the full prompt compute cost, which makes long system prompts cheap to reuse.

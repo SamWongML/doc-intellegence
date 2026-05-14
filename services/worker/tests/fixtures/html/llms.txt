@@ -1,0 +1,7 @@
+# Example Docs Index
+
+> Curated list of documentation entry points.
+
+- [Quickstart](https://docs.example.com/quickstart): how to get going in 10 minutes
+- [API reference](https://docs.example.com/api): every endpoint with examples
+- [Migration guide](https://docs.example.com/migrate): upgrading from v1 to v2
