@@ -86,5 +86,28 @@ services:
       DOC_SEARCH_AWS_ACCESS_KEY_ID: test
       DOC_SEARCH_AWS_SECRET_ACCESS_KEY: test
 
+  ingest_api:
+    build:
+      context: ..
+      dockerfile: services/ingest_api/Dockerfile
+    container_name: doc-search-ingest-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DOC_SEARCH_DATABASE_URL: postgresql+psycopg://docsearch:docsearch@postgres:5432/docsearch
+      DOC_SEARCH_REDIS_URL: redis://redis:6379/0
+      DOC_SEARCH_AWS_ENDPOINT_URL: http://localstack:4566
+      DOC_SEARCH_AWS_REGION: us-east-1
+      DOC_SEARCH_AWS_ACCESS_KEY_ID: test
+      DOC_SEARCH_AWS_SECRET_ACCESS_KEY: test
+      DOC_SEARCH_GITHUB_WEBHOOK_SECRET: dev-secret
+    ports:
+      - "8080:8080"
+
 volumes:
   postgres_data:

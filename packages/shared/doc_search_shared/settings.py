@@ -41,6 +41,20 @@ class Settings(BaseSettings):
     # Worker profile
     worker_profile: str = Field(default="light")
 
+    # Ingest API
+    ingest_api_keys: str = Field(
+        default="",
+        description="Comma-separated valid X-API-Key values. Empty disables auth (dev only).",
+    )
+    ingest_rate_limit_per_min: int = Field(default=60)
+    github_webhook_secret: str = Field(default="")
+
+    # EventBridge Scheduler
+    scheduler_role_arn: str | None = Field(default=None)
+    scheduler_target_arn: str | None = Field(default=None)
+    scheduler_group_name: str = Field(default="default")
+    scheduler_default_cron: str = Field(default="cron(0 6 * * ? *)")
+
     # Observability
     log_level: str = Field(default="INFO")
     log_json: bool = Field(default=False)
