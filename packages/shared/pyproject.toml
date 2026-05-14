@@ -1,0 +1,23 @@
+[project]
+name = "doc-search-shared"
+version = "0.0.0"
+description = "Shared models, clients, and DB schema for Doc-Search MCP services."
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "sqlalchemy>=2.0.36",
+    "alembic>=1.14",
+    "psycopg[binary]>=3.2",
+    "python-ulid>=3.0",
+    "structlog>=24.4",
+    "boto3>=1.35",
+    "httpx>=0.27",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["doc_search_shared"]

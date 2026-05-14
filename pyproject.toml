@@ -1,0 +1,29 @@
+[project]
+name = "doc-search-mcp"
+version = "0.0.0"
+description = "Doc-Search MCP — workspace root"
+requires-python = ">=3.12"
+readme = "README.md"
+
+[tool.uv.workspace]
+members = ["packages/shared"]
+
+[tool.uv.sources]
+doc-search-shared = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.7",
+    "mypy>=1.13",
+    "pre-commit>=4.0",
+    "types-python-dateutil>=2.9",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+markers = [
+    "wiring: tests that exercise real RAG wiring (skipped until Phase 6)",
+]
+testpaths = ["packages/shared/tests"]
