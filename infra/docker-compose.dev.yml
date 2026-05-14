@@ -67,5 +67,24 @@ services:
       timeout: 2s
       retries: 20
 
+  worker:
+    build:
+      context: ..
+      dockerfile: services/worker/Dockerfile
+    container_name: doc-search-worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    environment:
+      WORKER_PROFILE: light
+      DOC_SEARCH_WORKER_PROFILE: light
+      DOC_SEARCH_DATABASE_URL: postgresql+psycopg://docsearch:docsearch@postgres:5432/docsearch
+      DOC_SEARCH_AWS_ENDPOINT_URL: http://localstack:4566
+      DOC_SEARCH_AWS_REGION: us-east-1
+      DOC_SEARCH_AWS_ACCESS_KEY_ID: test
+      DOC_SEARCH_AWS_SECRET_ACCESS_KEY: test
+
 volumes:
   postgres_data:
