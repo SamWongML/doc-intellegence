@@ -21,11 +21,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Heavy profile only: Chromium-backed crawl + Playwright. Installed into
-# Dockerfile.heavy; the light image must never carry this weight.
+# Heavy profile only: Chromium-backed crawl + Playwright + Docling.
+# Installed into Dockerfile.heavy; the light image must never carry this
+# weight (Crawl4AI pulls Chromium, Docling pulls ~1-2 GB of model weights).
 heavy = [
     "crawl4ai>=0.4",
     "playwright>=1.47",
+    "docling>=2.0",
 ]
 
 [build-system]

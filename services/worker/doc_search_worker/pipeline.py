@@ -16,6 +16,7 @@ Source routing
                               index → HTML per-URL handling
 ``http_url`` + ``light``      Trafilatura; on empty output, requeue to heavy
 ``http_url`` + ``heavy``      Crawl4AI (headless Chromium)
+``http_url`` PDF/Office       Docling on heavy; requeue on light (Phase 3)
 ============================= =============================================
 """
 
@@ -34,7 +35,7 @@ from .enrich.anchors import build_anchors
 from .enrich.breadcrumbs import breadcrumbs_from_path
 from .enrich.code_blocks import dedupe_tags
 from .logging_utils import log
-from .parsers import html_trafilatura
+from .parsers import docling_parser, html_trafilatura
 from .parsers.markdown import parse_markdown
 from .parsers.openapi import OpenapiOperation, iter_operations, short_summary
 from .sources import github as github_source
@@ -223,11 +224,24 @@ async def _from_llms_full(job: Job) -> _Produced:
 async def _html_page_to_document(
     job: Job, page: http_url_source.FetchedPage
 ) -> ProcessedDocument | None:
-    """Profile-aware HTML → ProcessedDocument.
+    """Profile-aware page → ProcessedDocument routing.
 
-    Returns ``None`` when light extraction fails and the URL should be
-    requeued onto the heavy queue.
+    PDF/Office responses go to Docling on the heavy queue; HTML stays on the
+    Trafilatura (light) / Crawl4AI (heavy) split. Returns ``None`` when light
+    extraction fails (or a binary doc is seen on light) so the runner can
+    requeue the URL onto the heavy queue.
     """
+    if docling_parser.is_pdf_or_office(page.content_type):
+        if job.profile == "light":
+            log.info(
+                "pipeline.binary_doc_requeue",
+                job_id=job.job_id,
+                url=page.url,
+                content_type=page.content_type,
+            )
+            return None
+        return _pdf_office_to_document(job, page)
+
     if job.profile == "heavy":
         from .parsers import html_crawl4ai
 
@@ -255,6 +269,23 @@ async def _html_page_to_document(
         markdown=extracted.markdown,
         anchors=extracted.anchors,
     )
+
+
+def _pdf_office_to_document(job: Job, page: http_url_source.FetchedPage) -> ProcessedDocument:
+    """Convert a PDF/Office FetchedPage via Docling on the heavy queue."""
+    if page.content:
+        parsed = docling_parser.parse_bytes(page.content, content_type=page.content_type)
+    else:
+        # Fallback: let Docling re-fetch the URL itself. Used when the source
+        # iterator did not buffer bytes (tests, future streaming sources).
+        parsed = docling_parser.parse(page.url)
+    log.info(
+        "pipeline.docling_parsed",
+        job_id=job.job_id,
+        url=page.url,
+        pages=parsed.page_count,
+    )
+    return build_docling_document(job=job, url=page.url, parsed=parsed)
 
 
 def build_markdown_document(
@@ -348,6 +379,31 @@ def build_html_document(
     )
 
 
+def build_docling_document(
+    *,
+    job: Job,
+    url: str,
+    parsed: docling_parser.DoclingResult,
+) -> ProcessedDocument:
+    """Build a ``ProcessedDocument`` from a Docling conversion result."""
+    canonical = hashing.normalize_whitespace(parsed.markdown)
+    doc_id = hashing.document_id(job.library_id, url)
+    return ProcessedDocument(
+        document_id=doc_id,
+        library_id=job.library_id,
+        version=job.version,
+        source_url=url,
+        title=parsed.title or "Untitled",
+        breadcrumbs=[],
+        doc_type="reference",
+        language_tags=[],
+        markdown=canonical,
+        anchors=parsed.anchors,
+        content_hash=hashing.content_hash(canonical),
+        extracted_at=datetime.now(UTC),
+    )
+
+
 def build_llms_full_document(
     *,
     job: Job,
@@ -388,6 +444,7 @@ def _to_jsonl(docs: Iterable[ProcessedDocument]) -> bytes:
 __all__ = [
     "BATCH_SIZE",
     "JobOutcome",
+    "build_docling_document",
     "build_html_document",
     "build_llms_full_document",
     "build_markdown_document",
