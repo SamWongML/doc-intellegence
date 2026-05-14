@@ -11,7 +11,7 @@ Per-session entry point. Read this first, then load only the active phase file +
 | 2 | Worker HTML | [phase-2.md](docs/implementation/phase-2.md) | ☑ Done | services/worker: http_url + llms_txt sources, trafilatura+crawl4ai parsers, selectolax anchors, chrome strip, light→heavy requeue, Dockerfile.heavy; ruff/mypy/pytest green (2026-05-14) |
 | 3 | Worker PDF/Office | [phase-3.md](docs/implementation/phase-3.md) | ☑ Done | services/worker: docling_parser (lazy import) + http_url content-type routing (PDF/Office light→requeue, heavy→docling) + Dockerfile.heavy adds docling weights; ruff/mypy/pytest green (2026-05-14) |
 | 4 | Ingest API | [phase-4.md](docs/implementation/phase-4.md) | ☑ Done | services/ingest_api: FastAPI app + 7 routes (libraries CRUD/refresh, jobs, GitHub webhook), SQS publisher, EventBridge Scheduler, Redis sliding-window rate limit, X-API-Key auth, uvicorn + Mangum entry; ruff/mypy/pytest green (2026-05-14) |
-| 5 | MCP Server | [phase-5.md](docs/implementation/phase-5.md) | ☐ Not started | resolve_library_id + query_docs |
+| 5 | MCP Server | [phase-5.md](docs/implementation/phase-5.md) | ☑ Done | services/mcp_server: FastMCP (stdio + streamable-http) + resolve_library_id (exact/alias/version/pg_trgm) + query_docs (hybrid_search → tiktoken packer) + async pg registry + 2-layer cache; ruff/mypy/pytest green (2026-05-14) |
 | 6 | Hardening | [phase-6.md](docs/implementation/phase-6.md) | ☐ Not started | incremental, OTEL, IaC, CI/CD |
 
 Legend: ☐ not started · ◐ in progress · ☑ done · ⊘ skipped

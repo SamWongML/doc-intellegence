@@ -6,12 +6,18 @@ requires-python = ">=3.12"
 readme = "README.md"
 
 [tool.uv.workspace]
-members = ["packages/shared", "services/worker", "services/ingest_api"]
+members = [
+    "packages/shared",
+    "services/worker",
+    "services/ingest_api",
+    "services/mcp_server",
+]
 
 [tool.uv.sources]
 doc-search-shared = { workspace = true }
 doc-search-worker = { workspace = true }
 doc-search-ingest = { workspace = true }
+doc-search-mcp-server = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -36,4 +42,5 @@ testpaths = [
     "packages/shared/tests",
     "services/worker/tests",
     "services/ingest_api/tests",
+    "services/mcp_server/tests",
 ]

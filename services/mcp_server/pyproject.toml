@@ -1,0 +1,24 @@
+[project]
+name = "doc-search-mcp-server"
+version = "0.0.0"
+description = "Doc-Search MCP server: resolve_library_id + query_docs tools."
+requires-python = ">=3.12"
+dependencies = [
+    "doc-search-shared",
+    "mcp>=1.2",
+    "tiktoken>=0.7",
+    "psycopg[binary,pool]>=3.2",
+    "redis>=5.0",
+    "pydantic>=2.9",
+    "structlog>=24.4",
+]
+
+[project.scripts]
+doc-search-mcp = "doc_search_mcp.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["doc_search_mcp"]
