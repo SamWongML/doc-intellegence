@@ -79,9 +79,7 @@ async def test_http_url_light_requeues_to_heavy_on_empty_extract(
 
 
 @pytest.mark.asyncio
-async def test_http_url_heavy_uses_crawl4ai(
-    monkeypatch: pytest.MonkeyPatch, spa_html: str
-) -> None:
+async def test_http_url_heavy_uses_crawl4ai(monkeypatch: pytest.MonkeyPatch, spa_html: str) -> None:
     page = http_url_source.FetchedPage(
         url="https://spa.example/app",
         html=spa_html,
