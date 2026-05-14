@@ -6,7 +6,7 @@ Per-session entry point. Read this first, then load only the active phase file +
 
 | # | Phase | File | Status | Notes |
 |---|-------|------|--------|-------|
-| 0 | Foundation | [phase-0.md](docs/implementation/phase-0.md) | ☐ Not started | repo, shared models, dev stack |
+| 0 | Foundation | [phase-0.md](docs/implementation/phase-0.md) | ☑ Done | shared models + alembic + dev stack; ruff/mypy/pytest green (2026-05-14) |
 | 1 | Worker MVP (MD + OpenAPI) | [phase-1.md](docs/implementation/phase-1.md) | ☐ Not started | hardest; canonical output shape |
 | 2 | Worker HTML | [phase-2.md](docs/implementation/phase-2.md) | ☐ Not started | Trafilatura + Crawl4AI + llms.txt |
 | 3 | Worker PDF/Office | [phase-3.md](docs/implementation/phase-3.md) | ☐ Optional | Docling; skip unless needed |

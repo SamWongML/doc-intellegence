@@ -1,0 +1,71 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: doc-search-postgres
+    environment:
+      POSTGRES_USER: docsearch
+      POSTGRES_PASSWORD: docsearch
+      POSTGRES_DB: docsearch
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U docsearch -d docsearch"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+
+  migrator:
+    image: python:3.12-slim
+    container_name: doc-search-migrator
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DOC_SEARCH_DATABASE_URL: postgresql+psycopg://docsearch:docsearch@postgres:5432/docsearch
+      PYTHONUNBUFFERED: "1"
+    working_dir: /repo/packages/shared
+    volumes:
+      - ../:/repo
+    command:
+      - bash
+      - -c
+      - |
+        set -euo pipefail
+        pip install --quiet --no-cache-dir \
+          'alembic>=1.14' 'sqlalchemy>=2.0.36' 'psycopg[binary]>=3.2' \
+          'pydantic>=2.9' 'pydantic-settings>=2.6' 'python-ulid>=3.0' \
+          'structlog>=24.4'
+        pip install --quiet --no-cache-dir --no-deps -e .
+        alembic -c alembic.ini upgrade head
+
+  redis:
+    image: redis:7-alpine
+    container_name: doc-search-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+
+  localstack:
+    image: localstack/localstack:3
+    container_name: doc-search-localstack
+    environment:
+      SERVICES: s3,sqs
+      DEFAULT_REGION: us-east-1
+      AWS_DEFAULT_REGION: us-east-1
+      DEBUG: "0"
+    ports:
+      - "4566:4566"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:4566/_localstack/health"]
+      interval: 3s
+      timeout: 2s
+      retries: 20
+
+volumes:
+  postgres_data:
