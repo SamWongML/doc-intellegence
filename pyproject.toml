@@ -6,10 +6,11 @@ requires-python = ">=3.12"
 readme = "README.md"
 
 [tool.uv.workspace]
-members = ["packages/shared"]
+members = ["packages/shared", "services/worker"]
 
 [tool.uv.sources]
 doc-search-shared = { workspace = true }
+doc-search-worker = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -19,6 +20,9 @@ dev = [
     "mypy>=1.13",
     "pre-commit>=4.0",
     "types-python-dateutil>=2.9",
+    "types-PyYAML>=6.0",
+    "moto[sqs,s3]>=5.0",
+    "respx>=0.21",
 ]
 
 [tool.pytest.ini_options]
@@ -26,4 +30,4 @@ asyncio_mode = "auto"
 markers = [
     "wiring: tests that exercise real RAG wiring (skipped until Phase 6)",
 ]
-testpaths = ["packages/shared/tests"]
+testpaths = ["packages/shared/tests", "services/worker/tests"]
