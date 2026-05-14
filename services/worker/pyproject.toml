@@ -16,6 +16,16 @@ dependencies = [
     "prance>=23.6",
     "openapi-spec-validator>=0.7",
     "PyYAML>=6.0",
+    "trafilatura>=2.0",
+    "selectolax>=0.3",
+]
+
+[project.optional-dependencies]
+# Heavy profile only: Chromium-backed crawl + Playwright. Installed into
+# Dockerfile.heavy; the light image must never carry this weight.
+heavy = [
+    "crawl4ai>=0.4",
+    "playwright>=1.47",
 ]
 
 [build-system]

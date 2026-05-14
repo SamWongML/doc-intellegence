@@ -8,7 +8,7 @@ Per-session entry point. Read this first, then load only the active phase file +
 |---|-------|------|--------|-------|
 | 0 | Foundation | [phase-0.md](docs/implementation/phase-0.md) | ☑ Done | shared models + alembic + dev stack; ruff/mypy/pytest green (2026-05-14) |
 | 1 | Worker MVP (MD + OpenAPI) | [phase-1.md](docs/implementation/phase-1.md) | ☑ Done | services/worker: sources (github/openapi) + parsers + enrich + pipeline + SQS runner; ruff/mypy/pytest green (2026-05-14) |
-| 2 | Worker HTML | [phase-2.md](docs/implementation/phase-2.md) | ☐ Not started | Trafilatura + Crawl4AI + llms.txt |
+| 2 | Worker HTML | [phase-2.md](docs/implementation/phase-2.md) | ☑ Done | services/worker: http_url + llms_txt sources, trafilatura+crawl4ai parsers, selectolax anchors, chrome strip, light→heavy requeue, Dockerfile.heavy; ruff/mypy/pytest green (2026-05-14) |
 | 3 | Worker PDF/Office | [phase-3.md](docs/implementation/phase-3.md) | ☐ Optional | Docling; skip unless needed |
 | 4 | Ingest API | [phase-4.md](docs/implementation/phase-4.md) | ☐ Not started | FastAPI, webhooks, scheduler |
 | 5 | MCP Server | [phase-5.md](docs/implementation/phase-5.md) | ☐ Not started | resolve_library_id + query_docs |

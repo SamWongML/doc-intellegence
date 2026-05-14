@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Stripe Docs — Quickstart</title>
+</head>
+<body>
+  <main>
+    <h1 id="quickstart">Quickstart</h1>
+    <p>
+      Stripe's APIs power a wide range of online payment flows. The quickstart introduces the core
+      concepts: <strong>PaymentIntents</strong> for handling payments, <strong>Customers</strong> for
+      reusable billing, and webhooks for asynchronous events. Following this guide end-to-end will get
+      you from zero to a working test charge in roughly ten minutes.
+    </p>
+    <h2 id="install">Install the SDK</h2>
+    <p>
+      Use your package manager of choice. The official Stripe SDKs cover most server-side languages
+      and follow semantic versioning so upgrades are predictable. Pin a major version in your manifest
+      to keep deployments deterministic across environments.
+    </p>
+    <pre><code class="language-bash">npm install stripe</code></pre>
+    <h2 id="auth">Authenticate requests</h2>
+    <p>
+      All Stripe API calls require a secret key passed via the Authorization header. Use a restricted
+      key in production so that compromised credentials cannot perform sensitive operations. Rotate
+      keys via the dashboard at least once per quarter, or immediately after any incident.
+    </p>
+    <pre><code class="language-bash">export STRIPE_SECRET_KEY=sk_test_...</code></pre>
+    <h2 id="charge">Create a test charge</h2>
+    <p>
+      In test mode you can use Stripe's standard test card numbers to simulate any payment outcome
+      without moving real money. Each card maps to a deterministic response — success, decline,
+      insufficient funds, fraud — so you can exercise every code path in your integration tests.
+    </p>
+  </main>
+  <aside>
+    <a href="https://github.com/stripe/stripe-docs/edit/main/quickstart.md">Edit this page on GitHub</a>
+    <span>Was this page helpful?</span>
+  </aside>
+</body>
+</html>

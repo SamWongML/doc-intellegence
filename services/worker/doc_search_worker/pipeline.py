@@ -3,13 +3,27 @@
 The pipeline collects ``ProcessedDocument``s in memory then flushes them to
 ``RagEmbeddingClient.ingest_documents`` in batches of 50. It also returns a
 JSONL artifact that the runner uploads to S3 (``artifacts/...`` key).
+
+Source routing
+--------------
+
+============================= =============================================
+``source.type``               handler
+============================= =============================================
+``github``                    clone + iter Markdown files (Phase 1)
+``openapi``                   fetch spec, iter operations (Phase 1)
+``llms_full``                 ``llms-full.txt`` fast path or ``llms.txt``
+                              index → HTML per-URL handling
+``http_url`` + ``light``      Trafilatura; on empty output, requeue to heavy
+``http_url`` + ``heavy``      Crawl4AI (headless Chromium)
+============================= =============================================
 """
 
 from __future__ import annotations
 
 import io
 from collections.abc import Iterable, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from doc_search_shared.clients import RagEmbeddingClient
@@ -20,9 +34,12 @@ from .enrich.anchors import build_anchors
 from .enrich.breadcrumbs import breadcrumbs_from_path
 from .enrich.code_blocks import dedupe_tags
 from .logging_utils import log
+from .parsers import html_trafilatura
 from .parsers.markdown import parse_markdown
 from .parsers.openapi import OpenapiOperation, iter_operations, short_summary
 from .sources import github as github_source
+from .sources import http_url as http_url_source
+from .sources import llms_txt as llms_txt_source
 from .sources import openapi as openapi_source
 
 BATCH_SIZE = 50
@@ -36,6 +53,14 @@ class JobOutcome:
     chunk_count: int
     artifact_jsonl: bytes
     documents: list[ProcessedDocument]
+    requeue_heavy: list[str] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class _Produced:
+    documents: list[ProcessedDocument]
+    failed: int
+    requeue_heavy: list[str] = field(default_factory=list)
 
 
 async def process_job(job: Job, *, client: RagEmbeddingClient) -> JobOutcome:
@@ -45,20 +70,17 @@ async def process_job(job: Job, *, client: RagEmbeddingClient) -> JobOutcome:
         job_id=job.job_id,
         library_id=job.library_id,
         source_type=job.source.type,
+        profile=job.profile,
     )
-    documents: list[ProcessedDocument] = []
-    failed = 0
-    for produced in _produce(job):
-        if produced is None:
-            failed += 1
-        else:
-            documents.append(produced)
+    produced = await _produce(job)
+    documents = produced.documents
 
     log.info(
         "pipeline.parsed",
         job_id=job.job_id,
         documents=len(documents),
-        failed=failed,
+        failed=produced.failed,
+        requeue_heavy=len(produced.requeue_heavy),
     )
 
     ingested_total = 0
@@ -83,21 +105,36 @@ async def process_job(job: Job, *, client: RagEmbeddingClient) -> JobOutcome:
     return JobOutcome(
         docs_total=len(documents),
         docs_processed=ingested_total,
-        docs_failed=failed,
+        docs_failed=produced.failed,
         chunk_count=chunk_total,
         artifact_jsonl=_to_jsonl(documents),
         documents=documents,
+        requeue_heavy=produced.requeue_heavy,
     )
 
 
-def _produce(job: Job) -> Iterator[ProcessedDocument | None]:
+async def _produce(job: Job) -> _Produced:
     src = job.source
     if src.type == "github":
-        yield from _from_github(job)
-    elif src.type == "openapi":
-        yield from _from_openapi(job)
-    else:
-        raise NotImplementedError(f"source type {src.type!r} not supported in Phase 1")
+        return _collect(_from_github(job))
+    if src.type == "openapi":
+        return _collect(_from_openapi(job))
+    if src.type == "http_url":
+        return await _from_http_url(job)
+    if src.type == "llms_full":
+        return await _from_llms_full(job)
+    raise NotImplementedError(f"source type {src.type!r} not supported")
+
+
+def _collect(stream: Iterator[ProcessedDocument | None]) -> _Produced:
+    docs: list[ProcessedDocument] = []
+    failed = 0
+    for item in stream:
+        if item is None:
+            failed += 1
+        else:
+            docs.append(item)
+    return _Produced(documents=docs, failed=failed)
 
 
 def _from_github(job: Job) -> Iterator[ProcessedDocument | None]:
@@ -126,6 +163,98 @@ def _from_openapi(job: Job) -> Iterator[ProcessedDocument]:
     source = openapi_source.fetch_and_resolve(url)
     for op in iter_operations(source.spec):
         yield build_openapi_document(job=job, op=op, base_url=source.raw_url)
+
+
+async def _from_http_url(job: Job) -> _Produced:
+    docs: list[ProcessedDocument] = []
+    failed = 0
+    requeue: list[str] = []
+    for page in http_url_source.iter_pages(
+        job.source.url,
+        doc_paths=job.source.doc_paths or None,
+    ):
+        try:
+            maybe_doc = await _html_page_to_document(job, page)
+        except Exception as exc:
+            log.warning(
+                "pipeline.html_error",
+                job_id=job.job_id,
+                url=page.url,
+                error=str(exc),
+            )
+            failed += 1
+            continue
+        if maybe_doc is None:
+            requeue.append(page.url)
+            continue
+        docs.append(maybe_doc)
+    return _Produced(documents=docs, failed=failed, requeue_heavy=requeue)
+
+
+async def _from_llms_full(job: Job) -> _Produced:
+    result = llms_txt_source.fetch(job.source.url)
+    if isinstance(result, llms_txt_source.LlmsFullDoc):
+        full_doc = build_llms_full_document(job=job, full=result)
+        return _Produced(documents=[full_doc], failed=0)
+    # Index path: crawl each URL with the same profile rules.
+    docs: list[ProcessedDocument] = []
+    failed = 0
+    requeue: list[str] = []
+    for url in result.urls:
+        for page in http_url_source.iter_pages(url):
+            try:
+                maybe_doc = await _html_page_to_document(job, page)
+            except Exception as exc:
+                log.warning(
+                    "pipeline.html_error",
+                    job_id=job.job_id,
+                    url=page.url,
+                    error=str(exc),
+                )
+                failed += 1
+                continue
+            if maybe_doc is None:
+                requeue.append(page.url)
+            else:
+                docs.append(maybe_doc)
+    return _Produced(documents=docs, failed=failed, requeue_heavy=requeue)
+
+
+async def _html_page_to_document(
+    job: Job, page: http_url_source.FetchedPage
+) -> ProcessedDocument | None:
+    """Profile-aware HTML → ProcessedDocument.
+
+    Returns ``None`` when light extraction fails and the URL should be
+    requeued onto the heavy queue.
+    """
+    if job.profile == "heavy":
+        from .parsers import html_crawl4ai
+
+        crawled = await html_crawl4ai.fetch_and_extract(page.url)
+        return build_html_document(
+            job=job,
+            url=page.url,
+            title=crawled.title,
+            markdown=crawled.markdown,
+            anchors=crawled.anchors,
+        )
+    # light profile
+    extracted = html_trafilatura.extract(page.html)
+    if extracted is None:
+        log.info(
+            "pipeline.trafilatura_empty",
+            job_id=job.job_id,
+            url=page.url,
+        )
+        return None
+    return build_html_document(
+        job=job,
+        url=page.url,
+        title=extracted.title,
+        markdown=extracted.markdown,
+        anchors=extracted.anchors,
+    )
 
 
 def build_markdown_document(
@@ -192,6 +321,57 @@ def build_openapi_document(
     )
 
 
+def build_html_document(
+    *,
+    job: Job,
+    url: str,
+    title: str,
+    markdown: str,
+    anchors: dict[str, str],
+) -> ProcessedDocument:
+    """Build a ``ProcessedDocument`` from extracted HTML output."""
+    canonical = hashing.normalize_whitespace(markdown)
+    doc_id = hashing.document_id(job.library_id, url)
+    return ProcessedDocument(
+        document_id=doc_id,
+        library_id=job.library_id,
+        version=job.version,
+        source_url=url,
+        title=title or "Untitled",
+        breadcrumbs=[],
+        doc_type="guide",
+        language_tags=[],
+        markdown=canonical,
+        anchors=anchors,
+        content_hash=hashing.content_hash(canonical),
+        extracted_at=datetime.now(UTC),
+    )
+
+
+def build_llms_full_document(
+    *,
+    job: Job,
+    full: llms_txt_source.LlmsFullDoc,
+) -> ProcessedDocument:
+    """Build one ``ProcessedDocument`` from an ``llms-full.txt`` body."""
+    parsed = parse_markdown(full.markdown, default_title="llms-full")
+    doc_id = hashing.document_id(job.library_id, full.full_url)
+    return ProcessedDocument(
+        document_id=doc_id,
+        library_id=job.library_id,
+        version=job.version,
+        source_url=full.full_url,
+        title=parsed.title,
+        breadcrumbs=[],
+        doc_type="guide",
+        language_tags=dedupe_tags(parsed.code_languages),
+        markdown=parsed.canonical,
+        anchors=build_anchors([text for _, text in parsed.headings if text]),
+        content_hash=hashing.content_hash(parsed.canonical),
+        extracted_at=datetime.now(UTC),
+    )
+
+
 def _batched(docs: list[ProcessedDocument], size: int) -> Iterator[list[ProcessedDocument]]:
     for i in range(0, len(docs), size):
         yield docs[i : i + size]
@@ -208,6 +388,8 @@ def _to_jsonl(docs: Iterable[ProcessedDocument]) -> bytes:
 __all__ = [
     "BATCH_SIZE",
     "JobOutcome",
+    "build_html_document",
+    "build_llms_full_document",
     "build_markdown_document",
     "build_openapi_document",
     "process_job",

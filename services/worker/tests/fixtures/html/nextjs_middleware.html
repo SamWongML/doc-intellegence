@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Middleware | Next.js Docs</title>
+</head>
+<body>
+  <header class="site-nav">
+    <ul>
+      <li><a href="/">Home</a></li>
+      <li><a href="/docs">Docs</a></li>
+    </ul>
+  </header>
+  <main>
+    <nav aria-label="Breadcrumb">
+      <ol>
+        <li><a href="/docs/app">App Router</a></li>
+        <li><a href="/docs/app/routing">Routing</a></li>
+        <li>Middleware</li>
+      </ol>
+    </nav>
+    <article>
+      <h1 id="middleware">Middleware</h1>
+      <p>
+        Middleware allows you to run code before a request is completed. Then, based on the incoming request,
+        you can modify the response by rewriting, redirecting, modifying the request or response headers, or
+        responding directly. This is useful for handling things like authentication, A/B testing, redirects,
+        and more advanced server-side logic that you want to run before reaching your route handlers.
+      </p>
+      <h2 id="convention">Convention</h2>
+      <p>
+        Use the file <code>middleware.ts</code> (or <code>.js</code>) in the root of your project to define
+        Middleware. For example, at the same level as <code>pages</code> or <code>app</code>, or inside
+        <code>src</code> if applicable. Next.js will automatically detect and load the file at build time.
+      </p>
+      <h2 id="using-jwt">Using JWT</h2>
+      <p>
+        For authentication flows, you can verify a JWT inside the Middleware before the request reaches your
+        route handlers. When the token is missing or invalid, return a redirect response to your login page
+        so that protected routes never serve unauthenticated traffic.
+      </p>
+      <h2 id="matching-paths">Matching paths</h2>
+      <p>
+        The optional <code>matcher</code> config lets Middleware run only on matching paths. You can supply a
+        single path, an array of paths, or use regex-like syntax. This avoids invoking Middleware for every
+        request and keeps cold-start overhead low.
+      </p>
+      <h3 id="examples">Examples</h3>
+      <ul>
+        <li>Single path: <code>matcher: '/about/:path*'</code></li>
+        <li>Multiple paths: <code>matcher: ['/about/:path*', '/dashboard/:path*']</code></li>
+      </ul>
+    </article>
+    <footer class="article-footer">
+      <a href="/edit/middleware">Edit this page on GitHub</a>
+      <p>Was this helpful?</p>
+      <nav aria-label="Pagination">
+        <a class="prev" href="/docs/app/routing">Previous</a>
+        <a class="next" href="/docs/app/data-fetching">Next</a>
+      </nav>
+    </footer>
+  </main>
+</body>
+</html>
