@@ -29,12 +29,18 @@ _SITEMAP_TAG_RE = re.compile(r"<sitemap>", re.IGNORECASE)
 
 @dataclass(slots=True)
 class FetchedPage:
-    """One fetched URL: canonical url + decoded HTML body."""
+    """One fetched URL: canonical url + decoded HTML body + raw bytes.
+
+    ``html`` is empty for non-text responses (PDF, Office binaries) so callers
+    do not waste cycles attempting to decode binary data; use ``content`` for
+    those formats.
+    """
 
     url: str
     html: str
     content_type: str
     status_code: int
+    content: bytes = b""
 
 
 def iter_pages(
@@ -86,12 +92,30 @@ def _fetch_one(client: httpx.Client, url: str) -> FetchedPage | None:
     if resp.status_code >= 400:
         log.warning("http_url.fetch_status", url=url, status=resp.status_code)
         return None
+    content_type = resp.headers.get("content-type", "")
+    html = resp.text if _is_textual(content_type) else ""
     return FetchedPage(
         url=str(resp.url),
-        html=resp.text,
-        content_type=resp.headers.get("content-type", ""),
+        html=html,
+        content_type=content_type,
         status_code=resp.status_code,
+        content=resp.content,
     )
+
+
+def _is_textual(content_type: str) -> bool:
+    primary = content_type.split(";", 1)[0].strip().lower()
+    if not primary:
+        return True  # assume text when the server is silent
+    if primary.startswith("text/"):
+        return True
+    return primary in {
+        "application/xml",
+        "application/xhtml+xml",
+        "application/json",
+        "application/javascript",
+        "application/ld+json",
+    }
 
 
 def _looks_like_sitemap(url: str) -> bool:
